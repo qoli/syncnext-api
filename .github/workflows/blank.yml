@@ -24,10 +24,14 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      - uses: wei/wget@v1.1.1
-
+      
       - name: get sources.json
-        run: wget "https://notion-api.splitbee.io/v1/table/ecf09f98966f4a90a17b7abac61fc128" -O sources.json
+        uses: wei/wget@v1
+        with:
+          args: "https://notion-api.splitbee.io/v1/table/ecf09f98966f4a90a17b7abac61fc128" -O sources.json
 
-      - name: get sources.json
-        run: wget "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19" -O appData.json
+      - name: get appData.json
+        uses: wei/wget@v1
+        with:
+          args: "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19" -O appData.json
+
