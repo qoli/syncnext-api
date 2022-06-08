@@ -1,8 +1,9 @@
 name: Download JSON
+
 on:
-  push:
-    branches:
-      - master
+  schedule:
+    - cron: "15 16 * * *"
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
