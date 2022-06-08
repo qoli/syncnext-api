@@ -1,6 +1,11 @@
 name: Download JSON
 
 on:
+  push:
+    branches:
+      - main
+
+on:
   schedule:
     - cron: "*/30 * * * *"
 
