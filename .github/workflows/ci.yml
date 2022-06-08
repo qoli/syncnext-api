@@ -1,4 +1,4 @@
-name: GitHub Actions Build and Deploy Demo
+name: Download JSON
 on:
   push:
     branches:
@@ -14,3 +14,8 @@ jobs:
         uses: wei/wget@v1.1.1
         with:
           args: -O sources.json "https://notion-api.splitbee.io/v1/table/ecf09f98966f4a90a17b7abac61fc128"
+
+      - name: get appData.json
+        uses: wei/wget@v1.1.1
+        with:
+          args: -O appData.json "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19"
