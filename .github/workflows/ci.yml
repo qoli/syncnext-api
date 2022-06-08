@@ -2,7 +2,7 @@ name: Download JSON
 
 on:
   schedule:
-    - cron: "15 16 * * *"
+    - cron: "*/30 * * * *"
 
 jobs:
   build-and-deploy:
