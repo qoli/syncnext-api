@@ -1,0 +1,18 @@
+name: GitHub Actions Build and Deploy Demo
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: get sources.json
+        uses: wei/wget@v1
+        with:
+          args: "https://notion-api.splitbee.io/v1/table/ecf09f98966f4a90a17b7abac61fc128" -O sources.json
+
+      
