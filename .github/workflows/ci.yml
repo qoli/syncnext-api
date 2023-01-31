@@ -17,6 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: get sourcesv2.json
+        uses: wei/wget@v1.1.1
+        with:
+          args: -O sourcesv2.json "https://notion-api.splitbee.io/v1/table/da1a91b297ea4e49957643930f27c0b8"
+
       - name: get sources.json
         uses: wei/wget@v1.1.1
         with:
