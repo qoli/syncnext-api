@@ -32,6 +32,11 @@ jobs:
         with:
           args: -O appData.json "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19"
 
+      - name: get domainInfo.json
+        uses: wei/wget@v1.1.1
+        with:
+          args: -O domainInfo.json "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19"
+
       - name: Converts Markdown to HTML
         uses: jaywcjlove/markdown-to-html-cli@main
         with:
