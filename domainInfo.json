@@ -1,1 +1,1 @@
-[{"id":"8a8a6fa4-9eeb-4cd9-b7a9-7be8fc64903a","Text":"此域名會出現偶然的打開失敗，請嘗試多次重試","Name":"v.ddys.pro"},{"id":"9fa4760d-eca8-4f8e-b271-2560e6e2467a","PlayerRule":"reload,900","Text":"此域名將執行特殊播放邏輯","Name":"m3u.haiwaikan.com"}]
+[{"id":"8a8a6fa4-9eeb-4cd9-b7a9-7be8fc64903a","Text":"此域名會出現偶然的打開失敗，請嘗試多次重試","Name":"v.ddys.pro"},{"id":"9fa4760d-eca8-4f8e-b271-2560e6e2467a","PlayerRule":"reload,900","Text":"此域名執行特殊播放規則","Name":"m3u.haiwaikan.com"}]
