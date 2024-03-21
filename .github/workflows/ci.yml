@@ -47,14 +47,6 @@ jobs:
         with:
           args: -O domainInfo.json "https://notion-api.splitbee.io/v1/table/8b953280c3564fb7af1ec9d8c63f584c"
 
-      - name: Converts Markdown to HTML
-        uses: jaywcjlove/markdown-to-html-cli@main
-        with:
-          source: README.md
-          output: index.html
-          github-corners: https://github.com/jaywcjlove/markdown-to-html-cli
-          favicon: data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>
-
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Apply downloaded JSON
