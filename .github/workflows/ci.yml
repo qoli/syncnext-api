@@ -42,6 +42,48 @@ jobs:
         with:
           args: -O appData.json "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19"
 
+      - name: fetch MDD app version
+        id: mdd_version
+        run: |
+          set -euo pipefail
+          version=$(curl -fsSL "https://itunes.apple.com/lookup?id=1314769817&country=cn" | python - <<'PY'
+import json
+import sys
+
+data = json.load(sys.stdin)
+print(data["results"][0]["version"])
+PY
+)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: update mddAppVersion in appData.json
+        env:
+          MDD_VERSION: ${{ steps.mdd_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+import json
+import os
+
+version = os.environ["MDD_VERSION"]
+with open("appData.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+updated = False
+for item in data:
+    if isinstance(item, dict) and item.get("Key") == "mddAppVersion":
+        item["Text"] = version
+        updated = True
+        break
+
+if not updated:
+    raise SystemExit("mddAppVersion key not found in appData.json")
+
+with open("appData.json", "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=4)
+    f.write("\n")
+PY
+
       - name: get domainInfo.json
         uses: wei/wget@v1.1.1
         with:
