@@ -1,12 +1,11 @@
 [
     {
         "id": "866bfa7d-ded5-4f2d-a93b-8ffb49dc7e31",
-        "Text": "很遺憾的告知大家「低端影視」因為不可抗力關閉了",
         "Key": "onBootText"
     },
     {
         "id": "21864bbc-6c98-40b5-8a13-d218c8aa2424",
-        "Text": "20250628",
+        "Text": "20260119",
         "Key": "apiUpdatetime"
     },
     {
@@ -66,12 +65,12 @@
     },
     {
         "id": "5ae277f7-b446-4a19-b6f1-e395e25cfb23",
-        "Text": "5.6.20",
+        "Text": "5.7.40",
         "Key": "mddAppVersion"
     },
     {
         "id": "94e764f0-800d-4638-b02b-1129cc17db15",
-        "Text": "ios 17.1",
+        "Text": "ios 26.2",
         "Key": "mddOSVersion"
     },
     {
