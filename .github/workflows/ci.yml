@@ -46,12 +46,20 @@ jobs:
         id: mdd_version
         run: |
           set -euo pipefail
-          version=$(curl -fsSL "https://itunes.apple.com/lookup?id=1314769817&country=cn" | python - <<'PY'
+          version=$(python - <<'PY'
           import json
           import sys
+          import urllib.request
 
-          data = json.load(sys.stdin)
-          print(data["results"][0]["version"])
+          url = "https://itunes.apple.com/lookup?id=1314769817&country=cn"
+          try:
+              with urllib.request.urlopen(url) as resp:
+                  data = json.load(resp)
+              version = data["results"][0]["version"]
+          except Exception as exc:
+              raise SystemExit(f"Failed to fetch MDD version: {exc}")
+
+          print(version)
           PY
           )
           echo "version=$version" >> "$GITHUB_OUTPUT"
