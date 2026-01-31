@@ -49,9 +49,11 @@ jobs:
           version=$(python - <<'PY'
           import json
           import sys
+          import time
           import urllib.request
 
-          url = "https://itunes.apple.com/lookup?id=1314769817&country=cn"
+          ts = int(time.time())
+          url = f"https://itunes.apple.com/lookup?id=1314769817&country=cn&_={ts}"
           try:
               with urllib.request.urlopen(url) as resp:
                   data = json.load(resp)
