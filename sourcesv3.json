@@ -45,10 +45,18 @@
     {
         "id": "316c1b36-c401-809e-b4ad-eeb16ed6f8ad",
         "Top": true,
-        "note": "存在部分網盤地址無法播放",
+        "note": "-",
         "Search": true,
         "name": "libvio",
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_libvio/config.json"
+    },
+    {
+        "id": "316c1b36-c401-80c8-b5be-fe011659d301",
+        "Top": true,
+        "note": "韓劇/電影/綜藝",
+        "Search": true,
+        "name": "韩剧网",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_thanju/config.json"
     },
     {
         "id": "b70ab3a8-3e84-43a2-9c09-9334129a740d",
