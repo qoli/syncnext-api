@@ -13,34 +13,66 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: get source_ali.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O source_ali.json "https://notion-api.splitbee.io/v1/table/273e28c85324400db3e78c7009f35214"
+      - name: download JSON files with validation
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import urllib.request
 
-      - name: get sources18.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O sources18.json "https://notion-api.splitbee.io/v1/table/362cb65cfb4f4655995d6e8d80dea41c"
+          payloads = {
+              "source_ali.json": "https://notion-api.splitbee.io/v1/table/273e28c85324400db3e78c7009f35214",
+              "sources18.json": "https://notion-api.splitbee.io/v1/table/362cb65cfb4f4655995d6e8d80dea41c",
+              "sourcesv3.json": "https://notion-api.splitbee.io/v1/table/58f3de30e9dc4b7f8de6a714150057f4",
+              "sourcesv2.json": "https://notion-api.splitbee.io/v1/table/da1a91b297ea4e49957643930f27c0b8",
+              "appData.json": "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19",
+              "domainInfo.json": "https://notion-api.splitbee.io/v1/table/8b953280c3564fb7af1ec9d8c63f584c",
+          }
 
-      - name: get sourcesv3.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O sourcesv3.json "https://notion-api.splitbee.io/v1/table/58f3de30e9dc4b7f8de6a714150057f4"
+          def validate_json_array(path: Path):
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  return False, f"invalid JSON: {exc}"
+              if not isinstance(data, list):
+                  return False, f"expected array, got {type(data).__name__}"
+              if len(data) == 0:
+                  return False, "empty array"
+              return True, f"{len(data)} items"
 
-      - name: get sourcesv2.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O sourcesv2.json "https://notion-api.splitbee.io/v1/table/da1a91b297ea4e49957643930f27c0b8"
+          for filename, url in payloads.items():
+              current_path = Path(filename)
+              tmp_path = Path(f"{filename}.tmp")
 
-      - name: get appData.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O appData.json "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19"
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      tmp_path.write_bytes(response.read())
+              except Exception as exc:
+                  tmp_path.unlink(missing_ok=True)
+                  if current_path.exists():
+                      print(f"::warning::{filename} download failed ({exc}); keeping existing file.")
+                      continue
+                  raise SystemExit(f"{filename} download failed and no existing fallback file: {exc}")
+
+              valid, message = validate_json_array(tmp_path)
+              if not valid:
+                  tmp_path.unlink(missing_ok=True)
+                  if current_path.exists():
+                      print(f"::warning::{filename} payload rejected ({message}); keeping existing file.")
+                      continue
+                  raise SystemExit(f"{filename} payload rejected ({message}) and no existing fallback file.")
+
+              os.replace(tmp_path, current_path)
+              print(f"Updated {filename}: {message}")
+          PY
 
       - name: fetch MDD app version
         id: mdd_version
@@ -48,18 +80,22 @@ jobs:
           set -euo pipefail
           version=$(python - <<'PY'
           import json
-          import sys
           import time
           import urllib.request
+          import sys
 
+          version = ""
           ts = int(time.time())
           url = f"https://itunes.apple.com/lookup?id=1314769817&country=cn&_={ts}"
           try:
-              with urllib.request.urlopen(url) as resp:
+              with urllib.request.urlopen(url, timeout=20) as resp:
                   data = json.load(resp)
-              version = data["results"][0]["version"]
+              if data.get("resultCount", 0) > 0:
+                  version = data["results"][0].get("version", "")
+              else:
+                  print("::warning::MDD lookup returned zero results.", file=sys.stderr)
           except Exception as exc:
-              raise SystemExit(f"Failed to fetch MDD version: {exc}")
+              print(f"::warning::Failed to fetch MDD version: {exc}", file=sys.stderr)
 
           print(version)
           PY
@@ -76,8 +112,16 @@ jobs:
           import os
 
           version = os.environ["MDD_VERSION"]
+          if not version:
+              print("::warning::MDD version is empty; skipping mddAppVersion update.")
+              raise SystemExit(0)
+
           with open("appData.json", "r", encoding="utf-8") as f:
               data = json.load(f)
+
+          if not isinstance(data, list):
+              print(f"::warning::appData.json is not an array ({type(data).__name__}); skipping mddAppVersion update.")
+              raise SystemExit(0)
 
           updated = False
           for item in data:
@@ -87,18 +131,41 @@ jobs:
                   break
 
           if not updated:
-              raise SystemExit("mddAppVersion key not found in appData.json")
+              print("::warning::mddAppVersion key not found in appData.json; skipping update.")
+              raise SystemExit(0)
 
           with open("appData.json", "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=4)
               f.write("\n")
           PY
 
-      - name: get domainInfo.json
-        uses: wei/wget@v1.1.1
-        with:
-          args: -O domainInfo.json "https://notion-api.splitbee.io/v1/table/8b953280c3564fb7af1ec9d8c63f584c"
-
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Apply downloaded JSON
+
+      - name: Notify failure via Bark
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import urllib.parse
+          import urllib.request
+
+          base = "https://api.day.app/2xx8sKT2PhzPZyJTG7ohYK"
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+          ref_name = os.environ.get("GITHUB_REF_NAME", "unknown")
+          workflow = os.environ.get("GITHUB_WORKFLOW", "")
+          run_id = os.environ.get("GITHUB_RUN_ID", "")
+
+          title = f"SyncnextAPI CI Failed ({ref_name})"
+          body = (
+              f"Repo: {repo}\n"
+              f"Workflow: {workflow}\n"
+              f"Run: https://github.com/{repo}/actions/runs/{run_id}"
+          )
+          url = f"{base}/{urllib.parse.quote(title, safe='')}/{urllib.parse.quote(body, safe='')}"
+          urllib.request.urlopen(url, timeout=15).read()
+          print("Bark failure notification sent.")
+          PY
