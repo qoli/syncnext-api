@@ -19,60 +19,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: download JSON files with validation
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: export JSON via notion-api-worker
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import urllib.request
-
-          payloads = {
-              "source_ali.json": "https://notion-api.splitbee.io/v1/table/273e28c85324400db3e78c7009f35214",
-              "sources18.json": "https://notion-api.splitbee.io/v1/table/362cb65cfb4f4655995d6e8d80dea41c",
-              "sourcesv3.json": "https://notion-api.splitbee.io/v1/table/58f3de30e9dc4b7f8de6a714150057f4",
-              "sourcesv2.json": "https://notion-api.splitbee.io/v1/table/da1a91b297ea4e49957643930f27c0b8",
-              "appData.json": "https://notion-api.splitbee.io/v1/table/efa6a396e3854a2592a88f787b9c4a19",
-              "domainInfo.json": "https://notion-api.splitbee.io/v1/table/8b953280c3564fb7af1ec9d8c63f584c",
-          }
-
-          def validate_json_array(path: Path):
-              try:
-                  data = json.loads(path.read_text(encoding="utf-8"))
-              except Exception as exc:
-                  return False, f"invalid JSON: {exc}"
-              if not isinstance(data, list):
-                  return False, f"expected array, got {type(data).__name__}"
-              if len(data) == 0:
-                  return False, "empty array"
-              return True, f"{len(data)} items"
-
-          for filename, url in payloads.items():
-              current_path = Path(filename)
-              tmp_path = Path(f"{filename}.tmp")
-
-              try:
-                  with urllib.request.urlopen(url, timeout=30) as response:
-                      tmp_path.write_bytes(response.read())
-              except Exception as exc:
-                  tmp_path.unlink(missing_ok=True)
-                  if current_path.exists():
-                      print(f"::warning::{filename} download failed ({exc}); keeping existing file.")
-                      continue
-                  raise SystemExit(f"{filename} download failed and no existing fallback file: {exc}")
-
-              valid, message = validate_json_array(tmp_path)
-              if not valid:
-                  tmp_path.unlink(missing_ok=True)
-                  if current_path.exists():
-                      print(f"::warning::{filename} payload rejected ({message}); keeping existing file.")
-                      continue
-                  raise SystemExit(f"{filename} payload rejected ({message}) and no existing fallback file.")
-
-              os.replace(tmp_path, current_path)
-              print(f"Updated {filename}: {message}")
-          PY
+          cd notion-api-worker
+          bun install --frozen-lockfile
+          bun run export-json -- --out-dir ..
 
       - name: fetch MDD app version
         id: mdd_version

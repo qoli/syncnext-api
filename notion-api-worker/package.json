@@ -1,0 +1,18 @@
+{
+  "name": "notion-api-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "export-json": "bun run src/export-json.ts"
+  },
+  "dependencies": {
+    "hono": "^4.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "bun"
+}
