@@ -78,7 +78,7 @@ def run_export_json(api_root: Path, notion_token: str | None, skip_bun_install: 
         env["NOTION_TOKEN"] = notion_token
 
     if not env.get("NOTION_TOKEN"):
-        raise RuntimeError("NOTION_TOKEN is required for export-json. Use --notion-token or env NOTION_TOKEN.")
+        log("[warn] NOTION_TOKEN not set. export-json will only fetch publicly accessible Notion data.")
 
     if not skip_bun_install:
         run_cmd(["bun", "install", "--frozen-lockfile"], cwd=worker_dir, env=env)

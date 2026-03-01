@@ -4,6 +4,7 @@ const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
 const vm = require("vm");
+const { spawnSync } = require("child_process");
 
 const DEFAULT_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15";
@@ -168,6 +169,294 @@ function safeJSONParse(input, fallback) {
   } catch (_) {
     return fallback;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function containsSafeLineMarkers(text) {
+  return /safeline|SafeLineChallenge|雷池|\/\.safeline\/|Protected By .*WAF|访问已被拦截|Access Forbidden/i.test(
+    String(text || "")
+  );
+}
+
+function extractHeaderValue(headers, key) {
+  const lowerKey = String(key || "").toLowerCase();
+  if (!headers || typeof headers !== "object") return "";
+  for (const k of Object.keys(headers)) {
+    if (String(k).toLowerCase() === lowerKey) {
+      return String(headers[k] || "");
+    }
+  }
+  return "";
+}
+
+function isSafeLineChallenge(status, body, headers) {
+  if (Number(status) === 468) return true;
+  const text = String(body || "");
+  const contentType = extractHeaderValue(headers, "content-type");
+  if (/text\/html/i.test(contentType) && containsSafeLineMarkers(text)) return true;
+  return containsSafeLineMarkers(text);
+}
+
+function runCommandSync(command, args, timeoutMs) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return {
+    ok: result.status === 0 && !result.error,
+    status: result.status == null ? -1 : result.status,
+    stdout: String(result.stdout || ""),
+    stderr: String(result.stderr || ""),
+    error: result.error ? String(result.error.message || result.error) : "",
+  };
+}
+
+function pickPlaywrightCommand(preferred) {
+  const custom = String(preferred || "").trim();
+  if (custom) {
+    return { cmd: custom, prefixArgs: [] };
+  }
+
+  const direct = runCommandSync("playwright-cli", ["--version"], 5000);
+  if (direct.ok) {
+    return { cmd: "playwright-cli", prefixArgs: [] };
+  }
+
+  const npx = runCommandSync("npx", ["-y", "playwright-cli", "--version"], 12000);
+  if (npx.ok) {
+    return { cmd: "npx", prefixArgs: ["-y", "playwright-cli"] };
+  }
+
+  return null;
+}
+
+function parsePlaywrightResultBlock(rawOutput) {
+  const text = String(rawOutput || "");
+  const matches = Array.from(text.matchAll(/### Result\s*\n([\s\S]*?)(?=\n### |\s*$)/g));
+  let payload = "";
+  if (matches.length > 0) {
+    payload = String(matches[matches.length - 1][1] || "").trim();
+  } else {
+    payload = text.trim();
+  }
+
+  if (!payload) return null;
+
+  let value = payload;
+  try {
+    value = JSON.parse(payload);
+  } catch (_) {}
+
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch (_) {}
+  }
+
+  if (value && typeof value === "object") return value;
+  return null;
+}
+
+function compactHTTPEvents(events) {
+  return (events || []).slice(-6).map((item) => ({
+    method: item.method,
+    url: item.url,
+    status: item.status,
+    safeLine: !!item.safeLine,
+    arcFallbackAttempted: !!item.arcFallbackAttempted,
+    arcFallbackSuccess: !!item.arcFallbackSuccess,
+    arcFallbackError: item.arcFallbackError || "",
+    error: item.error || "",
+  }));
+}
+
+function explainFailure(errorText, httpEvents) {
+  const text = String(errorText || "");
+  const events = Array.isArray(httpEvents) ? httpEvents : [];
+  const safeLineEvents = events.filter((item) => item && item.safeLine);
+  if (safeLineEvents.length > 0) {
+    const triedArc = safeLineEvents.some((item) => item.arcFallbackAttempted);
+    const arcSuccess = safeLineEvents.some((item) => item.arcFallbackSuccess);
+    const last = safeLineEvents[safeLineEvents.length - 1] || {};
+    if (triedArc && !arcSuccess) {
+      return {
+        reasonCode: "safeline_challenge_arc_fallback_failed",
+        reasonText: `偵測到 SafeLine 挑戰頁，已嘗試 Arc fallback 但失敗：${last.arcFallbackError || "unknown"}`,
+      };
+    }
+    if (triedArc && arcSuccess) {
+      return {
+        reasonCode: "safeline_challenge_arc_fallback_applied",
+        reasonText: "偵測到 SafeLine 挑戰頁，已透過 Arc fallback 取得 HTML，但後續播放器解析仍失敗",
+      };
+    }
+    return {
+      reasonCode: "safeline_challenge_blocked",
+      reasonText: "偵測到 SafeLine 挑戰頁，導致播放器頁未返回原始 HTML",
+    };
+  }
+
+  if (/emptyView:/i.test(text)) {
+    return {
+      reasonCode: "plugin_empty_view",
+      reasonText: "插件回傳 emptyView，未取得可播放地址",
+    };
+  }
+
+  if (/callback timeout/i.test(text)) {
+    return {
+      reasonCode: "callback_timeout",
+      reasonText: "等待插件回調超時，可能是站點回應慢或頁面結構改版",
+    };
+  }
+
+  return {
+    reasonCode: "unknown",
+    reasonText: text || "unknown error",
+  };
+}
+
+function createArcPlaywrightBridge(options, logger) {
+  const state = {
+    command: null,
+    sessionReady: false,
+  };
+
+  function runPlaywright(args, timeoutMs) {
+    if (!state.command) {
+      state.command = pickPlaywrightCommand(options.playwrightCliCommand);
+    }
+    if (!state.command) {
+      return {
+        ok: false,
+        stdout: "",
+        stderr: "",
+        error: "playwright-cli not found",
+      };
+    }
+    const allArgs = state.command.prefixArgs.concat(args || []);
+    return runCommandSync(state.command.cmd, allArgs, timeoutMs);
+  }
+
+  async function ensureSession() {
+    if (state.sessionReady) return { ok: true, error: "" };
+
+    const configPath = path.resolve(options.playwrightArcConfigPath);
+    const config = {
+      browser: {
+        browserName: "chromium",
+        cdpEndpoint: options.playwrightArcCdpEndpoint,
+      },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf8");
+
+    let check = runPlaywright([`-s=${options.playwrightArcSession}`, "tab-list"], options.playwrightCliTimeoutMs);
+    if (!check.ok) {
+      check = runPlaywright(
+        [
+          `-s=${options.playwrightArcSession}`,
+          "open",
+          "--config",
+          configPath,
+          "--persistent",
+        ],
+        options.playwrightCliTimeoutMs
+      );
+    }
+
+    if (!check.ok && options.playwrightAutoLaunchArc) {
+      runCommandSync(
+        "open",
+        [
+          "-a",
+          "Arc",
+          "--args",
+          `--remote-debugging-port=${options.playwrightArcRemoteDebugPort}`,
+          "--remote-allow-origins=*",
+        ],
+        8000
+      );
+      await sleep(1800);
+      check = runPlaywright(
+        [
+          `-s=${options.playwrightArcSession}`,
+          "open",
+          "--config",
+          configPath,
+          "--persistent",
+        ],
+        options.playwrightCliTimeoutMs
+      );
+    }
+
+    if (!check.ok) {
+      return {
+        ok: false,
+        error: check.error || check.stderr || "unable to open playwright arc session",
+      };
+    }
+
+    state.sessionReady = true;
+    return { ok: true, error: "" };
+  }
+
+  async function fetchHTML(url) {
+    const ready = await ensureSession();
+    if (!ready.ok) {
+      return { ok: false, html: "", pageURL: "", error: ready.error };
+    }
+
+    const gotoRes = runPlaywright(
+      [`-s=${options.playwrightArcSession}`, "goto", url],
+      options.playwrightCliTimeoutMs
+    );
+    if (!gotoRes.ok) {
+      return {
+        ok: false,
+        html: "",
+        pageURL: "",
+        error: gotoRes.error || gotoRes.stderr || "playwright goto failed",
+      };
+    }
+
+    if (options.playwrightArcWaitMs > 0) {
+      await sleep(options.playwrightArcWaitMs);
+    }
+
+    const evalRes = runPlaywright(
+      [
+        `-s=${options.playwrightArcSession}`,
+        "eval",
+        "JSON.stringify({url: location.href, title: document.title || '', html: document.documentElement ? document.documentElement.outerHTML : ''})",
+      ],
+      options.playwrightCliTimeoutMs
+    );
+    const parsed = parsePlaywrightResultBlock(`${evalRes.stdout}\n${evalRes.stderr}`);
+    if (!evalRes.ok || !parsed || !parsed.html) {
+      return {
+        ok: false,
+        html: "",
+        pageURL: "",
+        error: evalRes.error || evalRes.stderr || "playwright eval failed",
+      };
+    }
+
+    logger.log(`[arc-fallback] url=${url} resolved=${parsed.url || url} html=${String(parsed.html).length}`);
+    return {
+      ok: true,
+      html: String(parsed.html || ""),
+      pageURL: String(parsed.url || url),
+      error: "",
+    };
+  }
+
+  return {
+    fetchHTML,
+  };
 }
 
 function parseArrayPayload(payload) {
@@ -509,6 +798,17 @@ function buildInvocationAdapter(options) {
 
 function createPluginRuntime(pluginSource, options, logger) {
   const adapter = buildInvocationAdapter(options);
+  const httpEvents = [];
+  const arcBridge = options.enablePlaywrightArcFallback
+    ? createArcPlaywrightBridge(options, logger)
+    : null;
+
+  function pushHTTPEvent(event) {
+    httpEvents.push(event);
+    if (httpEvents.length > 500) {
+      httpEvents.shift();
+    }
+  }
 
   async function doHTTP(req, methodOverride) {
     const request = req && typeof req === "object" ? req : {};
@@ -533,21 +833,55 @@ function createPluginRuntime(pluginSource, options, logger) {
       fetchOptions.body = typeof request.body === "string" ? request.body : JSON.stringify(request.body);
     }
 
+    const event = {
+      at: isoNow(),
+      method,
+      url,
+      status: 0,
+      safeLine: false,
+      arcFallbackAttempted: false,
+      arcFallbackSuccess: false,
+      arcFallbackError: "",
+      error: "",
+    };
+
     try {
       const response = await fetchWithTimeout(url, fetchOptions, options.requestTimeoutMs);
-      const body = method === "HEAD" ? "" : await response.text();
+      const responseHeaders = headersToObject(response.headers);
+      let body = method === "HEAD" ? "" : await response.text();
+      let status = response.status;
+      let finalURL = response.url;
+
+      event.status = status;
+      event.safeLine = method === "GET" && isSafeLineChallenge(status, body, responseHeaders);
+
+      if (event.safeLine && arcBridge && method === "GET") {
+        event.arcFallbackAttempted = true;
+        const fallback = await arcBridge.fetchHTML(url);
+        event.arcFallbackSuccess = !!fallback.ok;
+        event.arcFallbackError = fallback.error || "";
+        if (fallback.ok && fallback.html && !isSafeLineChallenge(200, fallback.html, { "content-type": "text/html" })) {
+          body = fallback.html;
+          status = 200;
+          finalURL = fallback.pageURL || finalURL;
+        }
+      }
+
+      pushHTTPEvent(event);
 
       return {
-        status: response.status,
-        statusCode: response.status,
-        headers: headersToObject(response.headers),
+        status,
+        statusCode: status,
+        headers: responseHeaders,
         body,
-        url: response.url,
+        url: finalURL,
       };
     } catch (error) {
+      event.error = error.message || String(error);
       if (options.verboseConsole) {
         logger.error(`[http-error] ${method} ${url} -> ${error.message || error}`);
       }
+      pushHTTPEvent(event);
       return {
         status: 0,
         statusCode: 0,
@@ -622,6 +956,8 @@ function createPluginRuntime(pluginSource, options, logger) {
     context,
     invoke: (fnName, args, expected, timeoutMs) =>
       adapter.invoke(context, fnName, args, expected, timeoutMs),
+    getHTTPEvents: () => httpEvents.slice(),
+    getHTTPEventsSince: (index) => httpEvents.slice(index || 0),
   };
 }
 
@@ -748,6 +1084,15 @@ async function runSinglePlugin(subscription, index, options, logger) {
     pluginReport.pluginName = String(source.config.name || pluginReport.subscriptionName);
     const runtime = createPluginRuntime(source, options, logger);
 
+    function buildFailureMeta(errorText, stageEvents) {
+      const explained = explainFailure(errorText, stageEvents);
+      return {
+        reasonCode: explained.reasonCode,
+        reasonText: explained.reasonText,
+        httpDiagnostics: compactHTTPEvents(stageEvents),
+      };
+    }
+
     const indexPage = pickIndexPage(source.config);
     if (!indexPage || !indexPage.javascript || !indexPage.url) {
       throw new Error("index page config missing");
@@ -783,7 +1128,8 @@ async function runSinglePlugin(subscription, index, options, logger) {
     );
 
     if (selectedMedias.length === 0) {
-      throw new Error("no medias returned");
+      const mediaFailure = explainFailure("no medias returned", runtime.getHTTPEvents());
+      throw new Error(`no medias returned; ${mediaFailure.reasonText}`);
     }
 
     for (let mediaIndex = 0; mediaIndex < selectedMedias.length; mediaIndex++) {
@@ -792,6 +1138,7 @@ async function runSinglePlugin(subscription, index, options, logger) {
       const detailURL = pickMediaDetailURL(media);
 
       if (!detailURL) {
+        const failureMeta = buildFailureMeta("detailURL missing", []);
         pluginReport.cases.push({
           ok: false,
           stage: "episodes",
@@ -802,12 +1149,16 @@ async function runSinglePlugin(subscription, index, options, logger) {
           playURL: "",
           probe: null,
           error: "detailURL missing",
+          reasonCode: failureMeta.reasonCode,
+          reasonText: failureMeta.reasonText,
+          httpDiagnostics: failureMeta.httpDiagnostics,
         });
         logger.log(`[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | detailURL missing`);
         continue;
       }
 
       let episodesResult;
+      const episodesHTTPIndex = runtime.getHTTPEvents().length;
       try {
         episodesResult = await runtime.invoke(
           source.config.episodes && source.config.episodes.javascript,
@@ -816,6 +1167,8 @@ async function runSinglePlugin(subscription, index, options, logger) {
           episodesTimeout
         );
       } catch (error) {
+        const stageEvents = runtime.getHTTPEventsSince(episodesHTTPIndex);
+        const failureMeta = buildFailureMeta(error.message || String(error), stageEvents);
         pluginReport.cases.push({
           ok: false,
           stage: "episodes",
@@ -826,9 +1179,12 @@ async function runSinglePlugin(subscription, index, options, logger) {
           playURL: "",
           probe: null,
           error: error.message || String(error),
+          reasonCode: failureMeta.reasonCode,
+          reasonText: failureMeta.reasonText,
+          httpDiagnostics: failureMeta.httpDiagnostics,
         });
         logger.log(
-          `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | episodes -> ${error.message || error}`
+          `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | episodes -> ${error.message || error} | reason=${failureMeta.reasonCode}`
         );
         continue;
       }
@@ -850,6 +1206,7 @@ async function runSinglePlugin(subscription, index, options, logger) {
 
       const targetEpisodes = options.allEpisodes ? episodes : episodes.slice(0, 1);
       if (targetEpisodes.length === 0) {
+        const failureMeta = buildFailureMeta("no episodes", runtime.getHTTPEventsSince(episodesHTTPIndex));
         pluginReport.cases.push({
           ok: false,
           stage: "episodes",
@@ -860,8 +1217,13 @@ async function runSinglePlugin(subscription, index, options, logger) {
           playURL: "",
           probe: null,
           error: "no episodes",
+          reasonCode: failureMeta.reasonCode,
+          reasonText: failureMeta.reasonText,
+          httpDiagnostics: failureMeta.httpDiagnostics,
         });
-        logger.log(`[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | no episodes`);
+        logger.log(
+          `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | no episodes | reason=${failureMeta.reasonCode}`
+        );
         continue;
       }
 
@@ -871,6 +1233,7 @@ async function runSinglePlugin(subscription, index, options, logger) {
         const episodeURL = pickEpisodeURL(episode);
 
         if (!episodeURL) {
+          const failureMeta = buildFailureMeta("episodeURL missing", []);
           pluginReport.cases.push({
             ok: false,
             stage: "player",
@@ -881,11 +1244,17 @@ async function runSinglePlugin(subscription, index, options, logger) {
             playURL: "",
             probe: null,
             error: "episodeURL missing",
+            reasonCode: failureMeta.reasonCode,
+            reasonText: failureMeta.reasonText,
+            httpDiagnostics: failureMeta.httpDiagnostics,
           });
-          logger.log(`[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} | episodeURL missing`);
+          logger.log(
+            `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} | episodeURL missing | reason=${failureMeta.reasonCode}`
+          );
           continue;
         }
 
+        const playerHTTPIndex = runtime.getHTTPEvents().length;
         try {
           const playerCallback = await runtime.invoke(
             source.config.player && source.config.player.javascript,
@@ -897,6 +1266,7 @@ async function runSinglePlugin(subscription, index, options, logger) {
           const player = buildPlayerResult(playerCallback.callbackType, playerCallback.payload);
           const playURL = String(player.url || "").trim();
           if (!playURL) {
+            const failureMeta = buildFailureMeta("empty play url", runtime.getHTTPEventsSince(playerHTTPIndex));
             pluginReport.cases.push({
               ok: false,
               stage: "player",
@@ -907,9 +1277,12 @@ async function runSinglePlugin(subscription, index, options, logger) {
               playURL: "",
               probe: null,
               error: "empty play url",
+              reasonCode: failureMeta.reasonCode,
+              reasonText: failureMeta.reasonText,
+              httpDiagnostics: failureMeta.httpDiagnostics,
             });
             logger.log(
-              `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} -> empty play url`
+              `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} -> empty play url | reason=${failureMeta.reasonCode}`
             );
             continue;
           }
@@ -930,12 +1303,17 @@ async function runSinglePlugin(subscription, index, options, logger) {
             playURL,
             probe,
             error: ok ? "" : (probe && probe.error ? probe.error : "probe failed"),
+            reasonCode: ok ? "" : "probe_failed",
+            reasonText: ok ? "" : "播放鏈可取得，但 probe 檢測未通過",
+            httpDiagnostics: ok ? [] : compactHTTPEvents(runtime.getHTTPEventsSince(playerHTTPIndex)),
           });
 
           logger.log(
             `[${ok ? "OK" : "FAIL"}] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} -> ${playURL}`
           );
         } catch (error) {
+          const stageEvents = runtime.getHTTPEventsSince(playerHTTPIndex);
+          const failureMeta = buildFailureMeta(error.message || String(error), stageEvents);
           pluginReport.cases.push({
             ok: false,
             stage: "player",
@@ -946,9 +1324,12 @@ async function runSinglePlugin(subscription, index, options, logger) {
             playURL: "",
             probe: null,
             error: error.message || String(error),
+            reasonCode: failureMeta.reasonCode,
+            reasonText: failureMeta.reasonText,
+            httpDiagnostics: failureMeta.httpDiagnostics,
           });
           logger.log(
-            `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} -> ${error.message || error}`
+            `[FAIL] ${pluginReport.pluginName} | ${mediaTitle} | ${episodeTitle} -> ${error.message || error} | reason=${failureMeta.reasonCode}`
           );
         }
       }
@@ -981,6 +1362,9 @@ async function main() {
   const probeTimeoutMs = toInt(getArg("probe-timeout-ms", "15000"), 15000);
   const vmLoadTimeoutMs = toInt(getArg("vm-load-timeout-ms", "8000"), 8000);
   const maxPlugins = toInt(getArg("max-plugins", "0"), 0);
+  const playwrightArcWaitMs = toInt(getArg("playwright-arc-wait-ms", "2200"), 2200);
+  const playwrightCliTimeoutMs = toInt(getArg("playwright-cli-timeout-ms", "25000"), 25000);
+  const playwrightArcRemoteDebugPort = toInt(getArg("playwright-arc-remote-port", "9222"), 9222);
   const onlyFilter = String(getArg("only", "") || "")
     .split(",")
     .map((item) => item.trim().toLowerCase())
@@ -993,6 +1377,15 @@ async function main() {
     strictProbe: hasFlag("strict-probe"),
     enableProbe: !hasFlag("no-probe"),
     failOnEmptyView: !hasFlag("allow-emptyview"),
+    enablePlaywrightArcFallback: !hasFlag("no-playwright-arc-fallback"),
+    playwrightAutoLaunchArc: !hasFlag("no-playwright-auto-launch-arc"),
+    playwrightArcSession: getArg("playwright-arc-session", "arc"),
+    playwrightArcConfigPath: getArg("playwright-arc-config", "/tmp/playwright-arc-cdp.json"),
+    playwrightArcCdpEndpoint: getArg("playwright-arc-cdp-endpoint", "http://localhost:9222"),
+    playwrightArcRemoteDebugPort,
+    playwrightArcWaitMs,
+    playwrightCliTimeoutMs,
+    playwrightCliCommand: getArg("playwright-cli-cmd", ""),
     invokeTimeoutMs,
     requestTimeoutMs,
     probeTimeoutMs,
@@ -1011,6 +1404,9 @@ async function main() {
   logger.log(`[log] ${logPath}`);
   logger.log(`[sources] ${sourcesPath}`);
   logger.log(`[output] ${reportPath}`);
+  logger.log(
+    `[arc-fallback] enabled=${options.enablePlaywrightArcFallback} session=${options.playwrightArcSession} cdp=${options.playwrightArcCdpEndpoint}`
+  );
 
   try {
     const raw = await readLocalText(sourcesPath);
@@ -1063,6 +1459,9 @@ async function main() {
         requestTimeoutMs: options.requestTimeoutMs,
         probeTimeoutMs: options.probeTimeoutMs,
         pluginRoot: options.pluginRoot,
+        enablePlaywrightArcFallback: options.enablePlaywrightArcFallback,
+        playwrightArcSession: options.playwrightArcSession,
+        playwrightArcCdpEndpoint: options.playwrightArcCdpEndpoint,
       },
       summary: {
         pluginsTotal: pluginReports.length,
