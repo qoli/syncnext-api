@@ -59,6 +59,14 @@
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_thanju/config.json"
     },
     {
+        "id": "317c1b36-c401-80f4-8a91-c9b134347ad3",
+        "Top": true,
+        "note": "dbku.tv 线上看",
+        "Search": true,
+        "name": "独播库",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_dbku/config.json"
+    },
+    {
         "id": "b70ab3a8-3e84-43a2-9c09-9334129a740d",
         "Top": true,
         "Priority": 500001,
