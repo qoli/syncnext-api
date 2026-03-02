@@ -45,7 +45,7 @@
     {
         "id": "316c1b36-c401-809e-b4ad-eeb16ed6f8ad",
         "Top": true,
-        "note": "-",
+        "note": "libvio",
         "Search": true,
         "name": "libvio",
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_libvio/config.json"
