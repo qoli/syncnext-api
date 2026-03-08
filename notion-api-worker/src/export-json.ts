@@ -89,12 +89,6 @@ async function main() {
   const outDir = resolve(getArg("--out-dir", ".."));
   const notionToken = process.env.NOTION_TOKEN;
 
-  if (!notionToken) {
-    console.log(
-      "::warning::NOTION_TOKEN is not set. Only publicly accessible Notion content can be fetched."
-    );
-  }
-
   let updatedCount = 0;
   for (const table of TABLES) {
     const outputPath = resolve(outDir, table.file);

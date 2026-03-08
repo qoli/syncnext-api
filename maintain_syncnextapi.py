@@ -77,9 +77,6 @@ def run_export_json(api_root: Path, notion_token: str | None, skip_bun_install: 
     if notion_token:
         env["NOTION_TOKEN"] = notion_token
 
-    if not env.get("NOTION_TOKEN"):
-        log("[warn] NOTION_TOKEN not set. export-json will only fetch publicly accessible Notion data.")
-
     if not skip_bun_install:
         run_cmd(["bun", "install", "--frozen-lockfile"], cwd=worker_dir, env=env)
 
@@ -126,7 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--notion-token",
         default=os.environ.get("NOTION_TOKEN", ""),
-        help="Notion token for export-json. Default: env NOTION_TOKEN.",
+        help="Optional Notion token for private pages. Public pages do not require it. Default: env NOTION_TOKEN.",
     )
     parser.add_argument(
         "--sources",
