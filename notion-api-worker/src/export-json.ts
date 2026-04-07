@@ -3,8 +3,14 @@ import { constants } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { fetchPageById } from "./notion-api/notion.js";
-import type { CollectionType } from "./notion-api/types.js";
-import { parsePageId } from "./notion-api/utils.js";
+import type {
+  CollectionType,
+  CollectionViewValueType,
+} from "./notion-api/types.js";
+import {
+  getFirstNotionRecordValue,
+  parsePageId,
+} from "./notion-api/utils.js";
 import { getTableData } from "./routes/table.js";
 
 const TABLES: Array<{ file: string; pageId: string }> = [
@@ -49,20 +55,19 @@ const fetchRowsFromTablePage = async (
     throw new Error(`table metadata not found for page ${pageId}`);
   }
 
-  const collection = Object.values(page.recordMap.collection)[0] as CollectionType;
-  const collectionView = Object.values(page.recordMap.collection_view)[0] as {
-    value: { id: string };
-  };
+  const collectionValue = getFirstNotionRecordValue(page.recordMap.collection);
+  const collectionView = getFirstNotionRecordValue<CollectionViewValueType>(
+    page.recordMap.collection_view
+  );
+  const collection: CollectionType | undefined = collectionValue
+    ? { value: collectionValue }
+    : undefined;
 
-  if (!collection?.value?.id || !collectionView?.value?.id) {
+  if (!collection?.value?.id || !collectionView?.id) {
     throw new Error(`invalid table metadata for page ${pageId}`);
   }
 
-  const { rows } = await getTableData(
-    collection,
-    collectionView.value.id,
-    notionToken
-  );
+  const { rows } = await getTableData(collection, collectionView.id, notionToken);
   return rows as unknown[];
 };
 

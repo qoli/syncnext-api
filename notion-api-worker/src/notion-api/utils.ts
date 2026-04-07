@@ -1,4 +1,10 @@
-import { DecorationType, ColumnType, RowContentType, RowType } from "./types.js";
+import {
+  DecorationType,
+  ColumnType,
+  NotionRecordEntry,
+  RowContentType,
+  RowType,
+} from "./types.js";
 
 export const idToUuid = (path: string): string =>
   `${path.slice(0, 8)}-${path.slice(8, 12)}-${path.slice(12, 16)}-${path.slice(16, 20)}-${path.slice(20)}`;
@@ -8,6 +14,43 @@ export const parsePageId = (id: string) => {
     const rawId = id.replace(/\-/g, "").slice(-32);
     return idToUuid(rawId);
   }
+};
+
+export const getNotionRecordValue = <T>(
+  record?: NotionRecordEntry<T> | null
+): T | undefined => {
+  if (!record) {
+    return undefined;
+  }
+
+  const { value } = record;
+  if (
+    value &&
+    typeof value === "object" &&
+    "value" in value &&
+    (value as { value?: T }).value !== undefined
+  ) {
+    return (value as { value: T }).value;
+  }
+
+  return value as T;
+};
+
+export const getFirstNotionRecordValue = <T>(
+  recordMap?: Record<string, NotionRecordEntry<T>> | null
+): T | undefined => {
+  if (!recordMap) {
+    return undefined;
+  }
+
+  for (const record of Object.values(recordMap)) {
+    const value = getNotionRecordValue(record);
+    if (value !== undefined) {
+      return value;
+    }
+  }
+
+  return undefined;
 };
 
 export const getNotionValue = (

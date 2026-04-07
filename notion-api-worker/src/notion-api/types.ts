@@ -76,18 +76,20 @@ export interface BaseValueType {
   content?: string[];
 }
 
+export interface CollectionValueType {
+  id: string;
+  version: number;
+  name: string[][];
+  schema: { [key: string]: ColumnSchemaType };
+  icon: string;
+  parent_id: string;
+  parent_table: string;
+  alive: boolean;
+  copied_from: string;
+}
+
 export interface CollectionType {
-  value: {
-    id: string;
-    version: number;
-    name: string[][];
-    schema: { [key: string]: ColumnSchemaType };
-    icon: string;
-    parent_id: string;
-    parent_table: string;
-    alive: boolean;
-    copied_from: string;
-  };
+  value: CollectionValueType;
 }
 
 export interface RowType {
@@ -128,21 +130,36 @@ export interface BlockType {
   value: BaseValueType;
 }
 
+export interface NotionWrappedRecordValue<T> {
+  value: T;
+  role?: string;
+}
+
+export interface NotionRecordEntry<T> {
+  role?: string;
+  spaceId?: string;
+  value: T | NotionWrappedRecordValue<T>;
+}
+
+export type CollectionViewType = "table" | "gallery";
+
+export interface CollectionViewValueType {
+  id: string;
+  type: CollectionViewType;
+  name?: string;
+  [key: string]: unknown;
+}
+
 export interface RecordMapType {
   block: BlockMapType;
   notion_user: {
     [key: string]: NotionUserType;
   };
   collection: {
-    [key: string]: CollectionType;
+    [key: string]: NotionRecordEntry<CollectionValueType>;
   };
   collection_view: {
-    [key: string]: {
-      value: {
-        id: string;
-        type: CollectionViewType;
-      };
-    };
+    [key: string]: NotionRecordEntry<CollectionViewValueType>;
   };
 }
 
@@ -152,8 +169,6 @@ export interface LoadPageChunkData {
     stack: any[];
   };
 }
-
-type CollectionViewType = "table" | "gallery";
 
 export interface CollectionData {
   recordMap: {

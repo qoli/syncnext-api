@@ -4,10 +4,15 @@ import {
   fetchTableData,
   fetchNotionUsers,
 } from "../notion-api/notion.js";
-import { parsePageId, getNotionValue } from "../notion-api/utils.js";
+import {
+  getFirstNotionRecordValue,
+  getNotionValue,
+  parsePageId,
+} from "../notion-api/utils.js";
 import {
   RowContentType,
   CollectionType,
+  CollectionViewValueType,
   RowType,
   HandlerRequest,
 } from "../notion-api/types.js";
@@ -90,19 +95,24 @@ export async function tableRoute(c: HandlerRequest) {
       { headers: {}, statusCode: 401, request: c }
     );
 
-  const collection = Object.keys(page.recordMap.collection).map(
-    (k) => page.recordMap.collection[k]
-  )[0];
+  const collectionValue = getFirstNotionRecordValue(page.recordMap.collection);
+  const collectionView = getFirstNotionRecordValue<CollectionViewValueType>(
+    page.recordMap.collection_view
+  );
+  const collection: CollectionType | undefined = collectionValue
+    ? { value: collectionValue }
+    : undefined;
 
-  const collectionView: {
-    value: { id: CollectionType["value"]["id"] };
-  } = Object.keys(page.recordMap.collection_view).map(
-    (k) => page.recordMap.collection_view[k]
-  )[0];
+  if (!collection?.value?.id || !collectionView?.id) {
+    return createResponse(
+      JSON.stringify({ error: "Invalid table metadata on Notion page: " + pageId }),
+      { headers: {}, statusCode: 500, request: c }
+    );
+  }
 
   const { rows } = await getTableData(
     collection,
-    collectionView.value.id,
+    collectionView.id,
     notionToken
   );
 

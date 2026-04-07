@@ -9,15 +9,6 @@
         "api": "Syncnext://MDD"
     },
     {
-        "id": "7e3cb2a3-8a84-4dc9-8ba7-8d9a0071aee1",
-        "Top": false,
-        "note": "海量動漫",
-        "Search": false,
-        "title": "AGE 動漫",
-        "name": "SyncnextAGE",
-        "api": "Syncnext://AGE"
-    },
-    {
         "id": "51795039-3995-4fbf-ba54-74af68780ae3",
         "Top": false,
         "note": "海外 IP 無廣告",
@@ -25,6 +16,15 @@
         "name": "新歐樂影院",
         "Cover": "https://i.ibb.co/TK0pFjL/image.png",
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_olevod/config.json"
+    },
+    {
+        "id": "33bc1b36-c401-802e-9553-ee98a2fe39e0",
+        "Top": false,
+        "note": "AGE 動漫",
+        "Search": true,
+        "name": "新 AGE",
+        "Cover": "https://i.ibb.co/TK0pFjL/image.png",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_age/config.json"
     },
     {
         "id": "2a9c1b36-c401-8019-b2cb-c80aec1a5fd3",

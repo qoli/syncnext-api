@@ -1,6 +1,15 @@
 import { fetchPageById, fetchBlocks } from "../notion-api/notion.js";
-import { parsePageId } from "../notion-api/utils.js";
-import { BlockType, CollectionType, HandlerRequest } from "../notion-api/types.js";
+import {
+  getFirstNotionRecordValue,
+  getNotionRecordValue,
+  parsePageId,
+} from "../notion-api/utils.js";
+import {
+  BlockType,
+  CollectionType,
+  CollectionViewValueType,
+  HandlerRequest,
+} from "../notion-api/types.js";
 import { getTableData } from "./table.js";
 import { createResponse } from "../utils/response.js";
 import { getNotionToken } from "../utils/index.js";
@@ -44,14 +53,12 @@ export async function pageRoute(c: HandlerRequest) {
     allBlocks = { ...allBlocks, ...newBlocks };
   }
 
-  const collection = page.recordMap.collection
-    ? page.recordMap.collection[Object.keys(page.recordMap.collection)[0]]
-    : null;
-
-  const collectionView = page.recordMap.collection_view
-    ? page.recordMap.collection_view[
-        Object.keys(page.recordMap.collection_view)[0]
-      ]
+  const collectionValue = getFirstNotionRecordValue(page.recordMap.collection);
+  const collectionView = getFirstNotionRecordValue<CollectionViewValueType>(
+    page.recordMap.collection_view
+  );
+  const collection: CollectionType | null = collectionValue
+    ? { value: collectionValue }
     : null;
 
   if (collection && collectionView) {
@@ -66,19 +73,21 @@ export async function pageRoute(c: HandlerRequest) {
     for (let b of pendingCollections) {
       const collPage = await fetchPageById(b!, notionToken);
 
-      const coll = Object.keys(collPage.recordMap.collection).map(
-        (k) => collPage.recordMap.collection[k]
-      )[0];
+      const collValue = getFirstNotionRecordValue(collPage.recordMap.collection);
+      const collView = getFirstNotionRecordValue<CollectionViewValueType>(
+        collPage.recordMap.collection_view
+      );
+      const coll: CollectionType | undefined = collValue
+        ? { value: collValue }
+        : undefined;
 
-      const collView: {
-        value: { id: CollectionType["value"]["id"] };
-      } = Object.keys(collPage.recordMap.collection_view).map(
-        (k) => collPage.recordMap.collection_view[k]
-      )[0];
+      if (!coll?.value?.id || !collView?.id) {
+        continue;
+      }
 
       const { rows, schema } = await getTableData(
         coll,
-        collView.value.id,
+        collView.id,
         notionToken,
         true
       );
@@ -92,7 +101,7 @@ export async function pageRoute(c: HandlerRequest) {
           schema,
           types: viewIds.map((id) => {
             const col = collPage.recordMap.collection_view[id];
-            return col ? col.value : undefined;
+            return getNotionRecordValue(col);
           }),
           data: rows,
         },
