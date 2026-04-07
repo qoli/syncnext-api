@@ -23,7 +23,6 @@
         "note": "AGE 動漫",
         "Search": true,
         "name": "新 AGE",
-        "Cover": "https://i.ibb.co/TK0pFjL/image.png",
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_age/config.json"
     },
     {
