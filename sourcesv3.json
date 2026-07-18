@@ -169,5 +169,13 @@
         "id": "2a9c1b36-c401-80ed-a2c3-f413c0ca7b7e",
         "name": "电影天堂资源",
         "api": "http://caiji.dyttzyapi.com/api.php/provide/vod/from/dyttm3u8/at/json/"
+    },
+    {
+        "id": "3a1c1b36-c401-8117-99ed-fe59760c808b",
+        "Top": false,
+        "note": "Gimy TV 剧迷影视资源",
+        "Search": true,
+        "name": "Gimy TV",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_gimy/config.json"
     }
 ]
