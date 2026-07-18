@@ -35,7 +35,7 @@
     },
     {
         "id": "316c1b36-c401-80cf-b4fd-c7c54d185768",
-        "Top": true,
+        "Top": false,
         "note": "领略更广阔的视界，尽享海量高清视频",
         "Search": true,
         "name": "YouKnowTV",
@@ -51,7 +51,7 @@
     },
     {
         "id": "316c1b36-c401-80c8-b5be-fe011659d301",
-        "Top": true,
+        "Top": false,
         "note": "需要海外 IP",
         "Search": true,
         "name": "韩剧网",
