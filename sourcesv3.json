@@ -171,6 +171,15 @@
         "api": "http://caiji.dyttzyapi.com/api.php/provide/vod/from/dyttm3u8/at/json/"
     },
     {
+        "id": "3a2c1b36-c401-8169-8df4-c4846dc8687f",
+        "Top": true,
+        "note": "grigri 動漫",
+        "Search": true,
+        "name": "grigri 動漫",
+        "Cover": "https://s2.loli.net/2023/12/28/HIJvdf8AlzDw1B4.png",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_grigri/config.json"
+    },
+    {
         "id": "3a1c1b36-c401-8117-99ed-fe59760c808b",
         "Top": true,
         "note": "Gimy TV 剧迷影视资源",
