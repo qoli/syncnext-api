@@ -22,6 +22,7 @@ Syncnext 是一款功能強大的聚合媒體播放器，致力於為用戶提�
 | **Sources v3** | 影視源列表 (v3 結構) | [sourcesv3.json](https://syncnext-api.ronniewong.cc/sourcesv3.json) |
 | **Sources 18+** | 特殊分類源列表 | [sources18.json](https://syncnext-api.ronniewong.cc/sources18.json) |
 | **Ali Sources** | 阿里雲盤資源列表 | [source_ali.json](https://syncnext-api.ronniewong.cc/source_ali.json) |
+| **SafeLine Hosts** | App 啟動時載入的 SafeLine 精確域名清單 | [safeline_hosts.json](https://syncnext-api.ronniewong.cc/safeline_hosts.json) |
 
 ## 🔗 相關鏈接
 
