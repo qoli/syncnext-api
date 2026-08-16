@@ -9,6 +9,14 @@
         "api": "Syncnext://MDD"
     },
     {
+        "id": "3bec1b36-c401-8090-9fd2-fa5412465615",
+        "Top": true,
+        "note": "低調影視",
+        "Search": true,
+        "name": "DDYS",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/refs/heads/main/plugin_ddys/config.json"
+    },
+    {
         "id": "51795039-3995-4fbf-ba54-74af68780ae3",
         "Top": false,
         "note": "海外 IP 無廣告",
