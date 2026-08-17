@@ -14,7 +14,7 @@
         "note": "低調影視",
         "Search": true,
         "name": "DDYS",
-        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/refs/heads/main/plugin_ddys/config.json"
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_ddys/config.json"
     },
     {
         "id": "51795039-3995-4fbf-ba54-74af68780ae3",
