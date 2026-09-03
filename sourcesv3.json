@@ -194,5 +194,13 @@
         "Search": true,
         "name": "Gimy TV",
         "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_gimy/config.json"
+    },
+    {
+        "id": "3d0c1b36-c401-8117-9e97-ca85e701ea87",
+        "Top": false,
+        "note": "聚合來源",
+        "Search": true,
+        "name": "ZIP0 影视",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_zip0/config.json"
     }
 ]
