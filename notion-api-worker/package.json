@@ -7,7 +7,7 @@
     "export-json": "bun run src/export-json.ts"
   },
   "dependencies": {
-    "hono": "^4.10.0"
+    "hono": "4.13.5"
   },
   "devDependencies": {
     "@types/node": "^24.8.1",
