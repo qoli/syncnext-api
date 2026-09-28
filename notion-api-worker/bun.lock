@@ -1,10 +1,11 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "notion-api-worker",
       "dependencies": {
-        "hono": "^4.10.0",
+        "hono": "4.13.5",
       },
       "devDependencies": {
         "@types/node": "^24.8.1",
@@ -16,7 +17,7 @@
   "packages": {
     "@types/node": ["@types/node@24.8.1", "", { "dependencies": { "undici-types": "7.14.0" } }, "sha512-alv65KGRadQVfVcG69MuB4IzdYVpRwMG/mq8KWOaoOdyY617P5ivaDiMCGOFDWD2sAn5Q0mR3mRtUOgm99hL9Q=="],
 
-    "hono": ["hono@4.10.0", "", {}, "sha512-V/S2IyKL6fk5+bEjiQzg74r5BglqAwU20IX3WjdTUFgvmtSqAZjSxN/Zb5lr6/JXVmH0aqkqOq++3UgzOi9+4Q=="],
+    "hono": ["hono@4.13.5", "", {}, "sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw=="],
 
     "prettier": ["prettier@3.6.2", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ=="],
 
