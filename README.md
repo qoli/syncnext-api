@@ -1,36 +1,26 @@
-# Syncnext API
+# SyncnextAPI
 
-[![CI Status](https://github.com/qoli/syncnext-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/qoli/syncnext-api/actions/workflows/ci.yml)
+GitHub Pages 靜態 JSON。發布地址由 [CNAME](CNAME) 定義；實際 payload 直接查
+根目錄的 `appData.json`、`sources*.json`、`source_ali.json`、`domainInfo.json`
+與 `safeline_hosts.json`。
 
-**Syncnext API** 是 [Syncnext 聚合媒體播放器](https://www.notion.so/Syncnext-app-821b80378be241149fa5e9a1bbf6cfdc) 的核心數據託管倉庫。此項目負責維護和提供應用程式運行所需的各類配置數據、視頻源列表以及更新檢測接口。
+[Download JSON workflow](.github/workflows/ci.yml) 透過本地 Bun 匯出工具讀取 Notion，
+再自動提交產物；觸發方式、排程與額外 app-version 更新以 workflow 為準。
+Notion 表與輸出檔案對應只維護於
+[export-json.ts](notion-api-worker/src/export-json.ts)。正式來源資料依 owning Notion
+表更新，不手動更動匯出成品。
 
-## 📖 項目簡介
+需要明確刷新本機 JSON 時：
 
-Syncnext 是一款功能強大的聚合媒體播放器，致力於為用戶提供便捷、統一的觀影體驗。本倉庫作為其後端數據支撐（API Edge Cache），確保用戶能夠獲取到最新的影視源站點信息和應用配置。
+```sh
+cd notion-api-worker
+bun install --frozen-lockfile
+bun run export-json -- --out-dir ..
+```
 
-更多關於 Syncnext 的功能介紹與使用指南，請參閱我們的 [Notion 官方文檔](https://www.notion.so/Syncnext-app-821b80378be241149fa5e9a1bbf6cfdc)。
+這會連線 Notion 並改寫本機 payload。修改後逐檔以 `python3 -m json.tool <file>`
+檢查格式，再檢閱差異。一般文件清理不執行匯出或 dispatch workflow。
 
-## 🚀 API 資源列表
-
-所有數據均通過 CDN 分發，確保高可用性與低延遲。
-
-| 資源名稱 | 描述 | 鏈接 (JSON) |
-| :--- | :--- | :--- |
-| **AppData** | 應用全局配置、公告及元數據 | [appData.json](https://syncnext-api.ronniewong.cc/appData.json) |
-| **Sources (Main)** | 標準影視源列表 (主要) | [sources.json](https://syncnext-api.ronniewong.cc/sources.json) |
-| **Sources v2** | 影視源列表 (v2 結構) | [sourcesv2.json](https://syncnext-api.ronniewong.cc/sourcesv2.json) |
-| **Sources v3** | 影視源列表 (v3 結構) | [sourcesv3.json](https://syncnext-api.ronniewong.cc/sourcesv3.json) |
-| **Sources 18+** | 特殊分類源列表 | [sources18.json](https://syncnext-api.ronniewong.cc/sources18.json) |
-| **Ali Sources** | 阿里雲盤資源列表 | [source_ali.json](https://syncnext-api.ronniewong.cc/source_ali.json) |
-| **SafeLine Hosts** | App 啟動時載入的 SafeLine 精確域名清單 | [safeline_hosts.json](https://syncnext-api.ronniewong.cc/safeline_hosts.json) |
-
-## 🔗 相關鏈接
-
-- **[Syncnext 主頁 (Notion)](https://www.notion.so/Syncnext-app-821b80378be241149fa5e9a1bbf6cfdc)** - 官方主頁，包含詳細的功能介紹。
-- **[更新日誌](https://www.notion.so/Syncnext-App-1-147-2e3c1b36c4018098babae678943c8d20)** - 查看 Syncnext App 的最新版本變化。
-- **[使用條款](https://www.notion.so/75cb67aff57b42d2bebea12189cda4fc)** - 使用前請閱讀。
-
-## 🛠 維護
-
-本倉庫數據通常由維護者手動更新或通過自動化腳本生成。
-如果您發現某個源站點失效，請聯繫開發者或在相關社群反饋。
+Notion wrapper 的路由以 [src/index.ts](notion-api-worker/src/index.ts) 為準，
+不沿用舊 splitbee hosted API 的部署說明。上游 credits：Timo Lins、Tobias Lins、
+Travis Fischer；來源為 [splitbee/notion-api-worker](https://github.com/splitbee/notion-api-worker)。

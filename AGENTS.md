@@ -7,7 +7,7 @@ This repository is a static JSON cache for SyncNext. Most content lives at the r
 - `.github/workflows/ci.yml`: scheduled workflow that refreshes JSON from Notion and auto-commits updates.
 
 ## Build, Test, and Development Commands
-There is no build step or runtime server in this repo; the files are served as-is.
+Published root payloads are served as-is. `notion-api-worker/` contains the Bun export tool used by CI; its table/file mapping lives in `src/export-json.ts`.
 - Validate JSON locally (optional): `python -m json.tool appData.json > /tmp/appData.pretty.json`
   - Use this to sanity-check formatting before committing manual edits.
 - Inspect recent updates: `git log -5 --oneline`
@@ -27,5 +27,5 @@ There is no automated test suite. Treat JSON validation as the primary check.
 - If you touch `index.html` or domain config, include a brief note on hosting impact.
 
 ## Automation & Data Sync Notes
-- The GitHub Actions workflow runs on `push`, `workflow_dispatch`, and a scheduled cron to fetch JSON from Notion via `wget`.
+- The GitHub Actions workflow runs on `push`, `workflow_dispatch`, and a scheduled cron to export JSON from Notion via the local Bun `notion-api-worker`.
 - Avoid manual edits unless you are intentionally overriding upstream data; otherwise rely on the workflow.
