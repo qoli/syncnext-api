@@ -9,6 +9,12 @@
         "api": "Syncnext://MDD"
     },
     {
+        "id": "412c1b36-c401-80a6-a150-d9756c8c0dd6",
+        "note": "Live · 96 · 99 ",
+        "name": "ViuTV",
+        "api": "syncnextPlugin://https://raw.githubusercontent.com/qoli/syncnextPlugin/main/plugin_viutv/config.json"
+    },
+    {
         "id": "3bec1b36-c401-8090-9fd2-fa5412465615",
         "Top": true,
         "note": "低調影視",
